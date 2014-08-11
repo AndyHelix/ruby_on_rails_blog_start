@@ -1,0 +1,213 @@
+rails generate controller welcome index
+
+控制生成器 产生 welcome 控制器和 index 动作, 对应url root/welcome/index
+
+config/routes.rb 路由控制文件
+
+创建资源 资源是一系列类似的对象 如 文章,可进行 CRUD 操作 create read update delet
+
+Rails 使用 resources 方法 在 config/routes.rb 中配置
+
+然后执行 rake routes
+
+自动创建对应 http 操作
+
+1. 定义处理请求的控制器
+rails g controller articles
+2. 在控制器中定义动作
+如:
+def new
+end
+只有public方法才能作为控制器动作
+3. 常规动作对应的视图
+Missing template articles/new, application/new with {locale:[:en], formats:[:html], handlers:[:erb, :builder, :coffee]}. Searched in: * "/path/to/blog/app/views"
+这行信息还挺长，我们来看一下到底是什么意思。
+
+第一部分说明找不到哪个模板，这里，丢失的是 articles/new 模板。Rails 首先会寻找这个模板，如果找不到，再找名为 application/new 的模板。之所以这么找，是因为 ArticlesController 继承自 ApplicationController。
+
+后面一部分是个 Hash。:locale 表示要找哪国语言模板，默认是英语（"en"）。:format 表示响应使用的模板格式，默认为 :html，所以 Rails 要寻找一个 HTML 模板。:handlers 表示用来处理模板的程序，HTML 模板一般使用 :erb，XML 模板使用 :builder，:coffee 用来把 CoffeeScript 转换成 JavaScript。
+
+最后一部分说明 Rails 在哪里寻找模板。在这个简单的程序里，模板都存放在一个地方，复杂的程序可能存放在多个位置
+
+<%= %>
+or
+<% %>
+
+===
+
+表单 表单构造器
+form_for
+
+调用 form_for 方法时，要指定一个对象。在上面的表单中，指定的是 :article。这个对象告诉 form_for，这个表单是用来处理哪个资源的。在 form_for 方法的块中，FormBuilder 对象（用 f 表示）创建了两个标签和两个文本字段，一个用于文章标题，一个用于文章内容。最后，在 f 对象上调用 submit 方法，创建一个提交按钮
+
+form action 属性应该指向其他页面, rails 用来处理新建资源表单提交数据的动作是 create，所以表单应该转向这个动作 使用 url: ...  解决
+
+表单传递给 create 动作的参数放在简单的Hash中 键为plain 对应值是 params[:article].inspect
+
+===
+创建模型
+
+模型名字使用单数 对应数据表使用复数
+
+创建模型器 单数
+
+rails generate model Article title:string text:text
+rails g ...
+
+得到 app/models/article.rb db/migrate/...rb 后者用来操作数据库
+Active Record 很智能，能自动把数据表中的字段映射到模型的属性上。所以无需在 Rails 的模型中声明属性，因为 Active Record 会自动映射
+
+===
+数据库迁移
+
+迁移是一个 Ruby 类，能简化创建和修改数据库结构的操作。Rails 使用 rake 任务运行迁移，修改数据库结构后还能撤销操作。迁移的文件名中有个时间戳，这样能保证迁移按照创建的时间顺序运行
+
+db/migrate/...rb文件定义了change方法,并且都是可逆的,能够撤销迁移操作.运行迁移会创建articles表 title text字段和两个时间戳 (创建 更新)
+
+rake db:migrate
+
+默认情况下，程序运行在开发环境中，所以相关的操作应用于 config/database.yml 文件中 development 区域设置的数据库上。如果想在其他环境中运行迁移，必须在命令中指明：rake db:migrate RAILS_ENV=production
+
+===
+控制器存储数据
+create 动作中
+@article 实例变量
+@article.save 返回是否保存成功的布尔值
+redirect_to @article 如何转到 show方法
+
+Rails 提供了很多安全防范措施保证程序的安全，你所看到的错误就是因为违反了其中一个措施。这个防范措施叫做“健壮参数”，我们要明确地告知 Rails 哪些参数可在控制器中使用。这里，我们想使用 title 和 text 参数
+设置为私有变量 通过私有方法读取
+permit 方法允许动作中使用 title text
+
+===
+显示
+
+控制器中show动作
+Article.find(params[:id])
+
+===
+列出所有文章
+作为首页 index 动作
+Article.all
+
+创建对应视图
+
+===
+在首页添加链接
+<%= link_to 'My Blog', controller: 'articles' %>
+link_to Rails内置视图帮助方法
+
+注意 同一个控制器中的view间链接不用指定 controller 选项 默认是当前控制器
+
+===
+数据验证 提示错误
+Article model继承自 Active Record
+其中有很多功能 CRUD操作 数据验证 复杂搜索实现 多个模型关联
+
+验证在model中实现
+
+添加数据验证后，如果把不满足验证条件的文章传递给 @article.save，会返回 false
+
+你要告诉用户哪儿出错了。为了实现这种功能，请在 app/views/articles/new.html.erb 文件中检测错误消息
+
+pluralize 是 Rails 提供的帮助方法，接受一个数字和字符串作为参数。如果数字比 1 大，字符串会被转换成复数形式
+
+使用 @article.errors.any? 检查是否有错误，如果有错误，使用 @article.errors.full_messages 显示错误
+
+在 new 动作中加入 @article = Article.new 的原因是，如果不这么做，在视图中 @article 的值就是 nil，调用 @article.errors.any? 时会发生错误
+
+===
+更新文章
+
+ArtilesController 添加 edit 动作
+
+views/articles/edit.html.erb 添加 edit 视图
+
+表单指向 update 动作
+
+method: :patch 选项告诉 Rails，提交这个表单时使用 PATCH 方法发送请求。根据 REST 架构，更新资源时要使用 HTTP PATCH 方法
+
+form_for 第一个参数可以是对象 @article 或同名的 :article
+
+不用把所有的属性都提供给 update 动作。例如，如果使用 @article.update(title: 'A new title')，Rails 只会更新 title 属性，不修改其他属性
+
+===
+使用局部视图去掉视图中的重复代码
+
+局部视图以下划线开始 _form.html.erb
+
+之所以能在两个动作中共用一个 form_for，是因为 @article 是一个资源，对应于符合 REST 架构的路由，Rails 能自动分辨使用哪个地址和请求方法
+
+===
+删除文章
+
+实现 articles#destroy 中的 destroy
+
+想把记录从数据库删除，可以在 Active Record 对象上调用 destroy 方法。注意，我们无需为这个动作编写视图，因为它会转向 index 动作
+
+生成“Destroy”链接的 link_to 用法有点不一样，第二个参数是具名路由，随后还传入了几个参数。:method 和 :'data-confirm' 选项设置链接的 HTML5 属性，点击链接后，首先会显示一个对话框，然后发起 DELETE 请求。这两个操作通过 jquery_ujs 这个 JavaScript 脚本实现。生成程序骨架时，会自动把 jquery_ujs 加入程序的布局中（app/views/layouts/application.html.erb）。没有这个脚本，就不会显示确认对话框
+
+===
+添加第二个模型 处理文章评论
+
+1. 生成模型
+rails g model Comment commenter:string body:text article:references
+
+文件的内容和前面的 Article 模型差不多，不过多了一行代码：belongs_to :article。这行代码用来建立 Active Record 关联。下文会简单介绍关联
+
+迁移文件中
+t.references 这行代码为两个模型的关联创建一个外键字段，同时还为这个字段创建了索引
+
+Rails 相当智能，只会执行还没有运行的迁移
+
+2. 绑定路由
+3. 实现动作
+4. 设计视图
+
+===
+模型关联
+
+评论和文章是 多对一的关系
+
+一端是评论
+一端是文章 app/models/article.rb
+
+form_for 的参数是个数组，构建嵌套路由，例如 /articles/1/comments
+
+
+这两行声明能自动完成很多操作。例如，如果实例变量 @article 是一个文章对象，可以使用 @article.comments 取回一个数组，其元素是这篇文章的评论 !!! 太简单了...隐藏多少细节啊
+
+===
+重构
+
+视图会使用局部视图 app/views/comments/_comment.html.erb 渲染 @article.comments 集合中的每个评论。render 方法会遍历 @article.comments 集合，把每个评论赋值给一个和局部视图同名的本地变量，在这个例子中本地变量是 comment，这个本地变量可以在局部视图中使用 _comment 同名视图
+
+局部视图何时用 end
+何时不用?
+
+render 方法的参数就是要渲染的局部视图，即 comments/form。Rails 很智能，能解析其中的斜线，知道要渲染 app/views/comments 文件夹中的 _form.html.erb 模板。
+
+@article 变量在所有局部视图中都可使用，因为它是实例变量
+
+===
+删除评论
+
+destroy 动作先查找当前文章，然后在 @article.comments 集合中找到对应的评论，将其从数据库中删掉，最后转向显示文章的页面
+
+===
+删除关联对象
+
+如 同时删除文章和评论
+
+===
+安全
+
+如果把这个博客程序放在网上，所有人都能添加、编辑、删除文章和评论。
+
+Rails 提供了一种简单的 HTTP 身份认证机制可以避免出现这种情况。
+
+在 ArticlesController 中，我们要用一种方法禁止未通过认证的用户访问其中几个动作。我们需要的是 http_basic_authenticate_with 方法，通过这个方法的认证后才能访问所请求的动作。
+
+要使用这个身份认证机制，需要在 ArticlesController 控制器的顶部调用 http_basic_authenticate_with 方法。除了 index 和 show 动作，访问其他动作都要通过认证
+
+其他的身份认证方法也可以在 Rails 程序中使用。其中两个比较流行的是 Devise 引擎和 Authlogic gem
